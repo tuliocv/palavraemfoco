@@ -231,7 +231,7 @@ def gerar_wordcloud_fig(tokens: list[str]):
         height=900,
         background_color="white",   # <- deixa as cores aparecerem bem
         mode="RGB",
-        prefer_horizontal=0.75,
+        prefer_horizontal=0.65,
         relative_scaling=1.0,       # <- AUMENTA a diferença por frequência
         min_font_size=10,
         max_font_size=260,          # <- permite palavras MUITO maiores
