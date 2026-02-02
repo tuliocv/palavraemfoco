@@ -38,7 +38,7 @@ except Exception:
 # Config
 # -----------------------------
 st.set_page_config(page_title="WordPulse - v1", layout="wide")
-st.markdown("###☁️ WordPulse - A Nuvem de Palavras da Gerência de Avaliação")
+st.markdown("## ☁️ WordPulse - A Nuvem de Palavras da Gerência de Avaliação")
 
 DATA_PATH = Path("data_words.json")
 
