@@ -37,12 +37,12 @@ except Exception:
 # -----------------------------
 # Config
 # -----------------------------
-st.set_page_config(page_title="Nuvem de Palavras", layout="wide")
-st.title("☁️ Nuvem de Palavras")
+st.set_page_config(page_title="WordPulse - v1", layout="wide")
+st.title("☁️ WordPulse - A Nuvem de Palavras da Gerência de Avaliação")
 
 DATA_PATH = Path("data_words.json")
 
-DEFAULT_QUESTION = "Digite uma palavra ou pequena frase que represente sua percepção sobre o tema."
+DEFAULT_QUESTION = "Digite uma palavra que represente sua percepção sobre o tema."
 
 # Stopwords PT-BR (mais completa; ajuste livre)
 STOPWORDS_PT = {
@@ -347,7 +347,7 @@ with st.sidebar:
                 st.rerun()
 
     st.divider()
-    st.caption("Público: envia respostas. Admin: pergunta, histórico, zerar e relatório via ChatGPT.")
+    st.caption("Área dedicado aos administradores.")
 
 
 # -----------------------------
