@@ -363,7 +363,7 @@ with col1:
 
     st.markdown("### Pergunta")
 
-st.markdown(
+    st.markdown(
     f"""
     <div style="
         font-size: 1.6rem;
@@ -379,7 +379,7 @@ st.markdown(
     </div>
     """,
     unsafe_allow_html=True
-)
+    )
 
 
 
