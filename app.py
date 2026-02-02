@@ -255,3 +255,15 @@ with col2:
         st.write(filtered if modo.startswith("Filtrado") else words_all)
     else:
         st.caption("🔒 Histórico completo e zerar: apenas admin.")
+
+
+st.markdown(
+    """
+    <hr style="margin-top: 3rem; margin-bottom: 1rem;">
+    <div style="text-align: center; font-size: 0.9rem; color: #6c757d;">
+        App desenvolvido pela <strong>Gerência de Avaliação</strong> • 02/02/2026
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
