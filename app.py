@@ -120,6 +120,38 @@ STOPWORDS_PT = {
     "resposta","respostas","pergunta","perguntas","participante","participantes","tema","assunto",
     "aula","curso","uc","disciplina"  # remova se quiser contar esses termos
 }
+st.markdown(
+    """
+    <style>
+        /* Espaçamento entre blocos principais */
+        .block-container {
+            padding-top: 2rem;
+        }
+
+        /* Espaço abaixo de títulos */
+        h1, h2, h3 {
+            margin-bottom: 1.4rem !important;
+        }
+
+        /* Espaço entre parágrafos e caixas */
+        p {
+            margin-bottom: 1.2rem !important;
+        }
+
+        /* Espaço abaixo de inputs */
+        div[data-baseweb="input"] {
+            margin-bottom: 1.8rem;
+        }
+
+        /* Espaço entre alerts/info */
+        div.stAlert {
+            margin-top: 1.4rem;
+            margin-bottom: 1.6rem;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 # -----------------------------
 # Admin auth via secrets/env
