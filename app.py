@@ -468,7 +468,7 @@ with col1:
     pergunta = load_question()
 
     #st.markdown("## Pergunta")
-    #st.info(pergunta)
+    st.info(pergunta)
 
     #st.markdown("### Pergunta")
 
