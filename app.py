@@ -75,7 +75,7 @@ def add_banner(image_path: str, height_px: int = 200):
     except FileNotFoundError:
         st.warning("Banner não encontrado em assets/banner.png (ok continuar sem banner).")
 
-add_banner("assets/banner.png", height_px=205)
+add_banner("assets/banner.png", height_px=210)
 st.markdown("## ☁️ WordPulse - A Nuvem de Palavras da Gerência de Avaliação")
 
 # =============================
