@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 # Config
 # -----------------------------
 st.set_page_config(page_title="Palavra em Foco", layout="wide")
-st.title("☁️ Palavra em Foco — Nuvem ao vivo")
+st.title("☁️ Wordpulse - a nuvem de palavras da Gerência de Avaliação")
 
 DATA_PATH = Path("data_words.json")
 
