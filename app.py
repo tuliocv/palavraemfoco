@@ -1,7 +1,4 @@
 # app.py
-# Streamlit app: público pode adicionar palavras sem login; somente admin (login+senha) pode
-# (1) zerar a nuvem e (2) visualizar o histórico completo.
-
 import json
 import os
 import re
@@ -15,14 +12,13 @@ from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 
 # -----------------------------
-# Configurações gerais
+# Config
 # -----------------------------
 st.set_page_config(page_title="Palavra em Foco", layout="wide")
 st.title("☁️ Palavra em Foco — Nuvem ao vivo")
 
-DATA_PATH = Path("data_words.json")  # arquivo simples para compartilhar dados entre usuários (no mesmo deploy)
+DATA_PATH = Path("data_words.json")
 
-# Stopwords PT-BR (ajuste livre)
 STOPWORDS_PT = {
     "a","à","ao","aos","as","às","com","como","da","das","de","do","dos","e","é","em","entre",
     "na","nas","no","nos","o","os","ou","para","por","que","se","sem","um","uma","não","nao",
@@ -31,28 +27,20 @@ STOPWORDS_PT = {
 }
 
 # -----------------------------
-# Auth (admin) via secrets/env
+# Admin auth via secrets/env
 # -----------------------------
-# Streamlit Cloud: defina em .streamlit/secrets.toml:
-#   ADMIN_USER="admin"
-#   ADMIN_PASS="uma_senha_forte"
-#
-# Alternativa local: variáveis de ambiente ADMIN_USER e ADMIN_PASS
 ADMIN_USER = st.secrets.get("ADMIN_USER", os.getenv("ADMIN_USER", "admin"))
-ADMIN_PASS = st.secrets.get("ADMIN_PASS", os.getenv("ADMIN_PASS", ""))  # deixe vazio até configurar
+ADMIN_PASS = st.secrets.get("ADMIN_PASS", os.getenv("ADMIN_PASS", ""))  # configure no Cloud secrets
 
 def check_admin(user: str, pwd: str) -> bool:
-    # compara de forma segura (evita timing leak)
-    return hmac.compare_digest(user or "", ADMIN_USER or "") and hmac.compare_digest(pwd or "", ADMIN_PASS or "")
+    return (
+        hmac.compare_digest(user or "", ADMIN_USER or "")
+        and hmac.compare_digest(pwd or "", ADMIN_PASS or "")
+    )
 
 # -----------------------------
-# Lock opcional (evita corrida entre usuários)
+# Lock (opcional)
 # -----------------------------
-# Se quiser mais robustez, adicione "filelock" ao requirements.txt
-# streamlit
-# wordcloud
-# matplotlib
-# filelock
 try:
     from filelock import FileLock
     LOCK_AVAILABLE = True
@@ -60,7 +48,6 @@ except Exception:
     LOCK_AVAILABLE = False
 
 def with_lock(fn):
-    """Executa fn() com lock se filelock estiver disponível."""
     if not LOCK_AVAILABLE:
         return fn()
     lock = FileLock(str(DATA_PATH) + ".lock")
@@ -68,7 +55,7 @@ def with_lock(fn):
         return fn()
 
 # -----------------------------
-# Persistência simples
+# Persistência
 # -----------------------------
 def _read_data():
     if not DATA_PATH.exists():
@@ -86,16 +73,13 @@ def _write_data(data: dict):
 
 def load_words() -> list[str]:
     def inner():
-        data = _read_data()
-        return data.get("words", []) or []
+        return (_read_data().get("words", []) or [])
     return with_lock(inner)
 
 def append_word(token: str):
     def inner():
         data = _read_data()
-        words = data.get("words", []) or []
-        words.append(token)
-        data["words"] = words
+        data["words"] = (data.get("words", []) or []) + [token]
         _write_data(data)
     return with_lock(inner)
 
@@ -111,8 +95,7 @@ def clear_all_words():
 # -----------------------------
 def limpar_token(t: str) -> str:
     t = (t or "").lower().strip()
-    # mantém letras (inclui acentos) e remove tudo que não for letra
-    t = re.sub(r"[^a-zà-ÿ]", "", t)
+    t = re.sub(r"[^a-zà-ÿ]", "", t)  # mantém letras com acento
     return t
 
 def filtrar_token(token: str) -> str | None:
@@ -126,10 +109,9 @@ def filtrar_token(token: str) -> str | None:
     return token
 
 # -----------------------------
-# WordCloud render
+# WordCloud
 # -----------------------------
 def gerar_wordcloud_fig(words: list[str]):
-    # filtra novamente por segurança
     valid = []
     for w in words:
         w2 = filtrar_token(w)
@@ -157,23 +139,52 @@ def gerar_wordcloud_fig(words: list[str]):
     return fig
 
 # -----------------------------
-# Sidebar: Admin login
+# Estado
+# -----------------------------
+if "is_admin" not in st.session_state:
+    st.session_state.is_admin = False
+
+if "last_added" not in st.session_state:
+    st.session_state.last_added = ""
+
+if "input_word" not in st.session_state:
+    st.session_state.input_word = ""
+
+# -----------------------------
+# Callback do input (AQUI é o segredo)
+# -----------------------------
+def on_word_change():
+    raw = st.session_state.get("input_word", "")
+    token = filtrar_token(raw)
+
+    # Sempre limpa o campo (sem erro, porque estamos no callback)
+    st.session_state.input_word = ""
+
+    if not token:
+        return
+
+    # Evita duplicar no rerun
+    if token == st.session_state.get("last_added", ""):
+        return
+
+    append_word(token)
+    st.session_state.last_added = token
+
+# -----------------------------
+# Sidebar admin
 # -----------------------------
 with st.sidebar:
     st.header("🔒 Área administrativa")
 
-    if "is_admin" not in st.session_state:
-        st.session_state.is_admin = False
-
     if ADMIN_PASS == "":
-        st.warning("Defina ADMIN_PASS em secrets/env para habilitar login admin.")
+        st.warning("Admin desabilitado: defina ADMIN_PASS nos Secrets/ENV.")
         st.session_state.is_admin = False
     else:
         if not st.session_state.is_admin:
-            user = st.text_input("Usuário", value="", placeholder="admin")
-            pwd = st.text_input("Senha", value="", type="password", placeholder="••••••••")
+            u = st.text_input("Usuário", value="", placeholder="admin", key="admin_user")
+            p = st.text_input("Senha", value="", type="password", placeholder="••••••••", key="admin_pass")
             if st.button("Entrar"):
-                if check_admin(user, pwd):
+                if check_admin(u, p):
                     st.session_state.is_admin = True
                     st.success("Login admin ok.")
                     st.rerun()
@@ -186,7 +197,7 @@ with st.sidebar:
                 st.rerun()
 
     st.divider()
-    st.caption("Público: pode adicionar palavras sem login. Admin: pode zerar e ver histórico.")
+    st.caption("Público: adiciona palavras. Admin: vê histórico completo e pode zerar.")
 
 # -----------------------------
 # UI principal
@@ -195,36 +206,20 @@ col1, col2 = st.columns([2, 1], gap="large")
 
 with col1:
     st.subheader("Digite uma palavra e pressione Enter")
-
-    # guarda input em session_state para limpar depois
-    if "input_word" not in st.session_state:
-        st.session_state.input_word = ""
-
-    palavra = st.text_input(
+    st.text_input(
         "Palavra",
         key="input_word",
         placeholder="Ex.: colaboração",
-        help="A nuvem atualiza quando você pressiona Enter (Streamlit).",
+        help="A nuvem atualiza quando você pressiona Enter.",
+        on_change=on_word_change,
     )
 
-    # Evita re-adicionar repetidamente a mesma palavra ao rerun
-    if "last_added" not in st.session_state:
-        st.session_state.last_added = ""
-
-    token = filtrar_token(palavra)
-    if token and token != st.session_state.last_added:
-        append_word(token)
-        st.session_state.last_added = token
-        st.session_state.input_word = ""  # limpa campo
-        st.rerun()
-
-    # Carrega e mostra a nuvem (dados compartilhados via arquivo)
     words_all = load_words()
     fig = gerar_wordcloud_fig(words_all)
 
     st.markdown("### ☁️ Nuvem de palavras (ao vivo)")
     if fig is None:
-        st.info("Ainda não há palavras válidas. Digite uma palavra (ex.: “colaboração”) e pressione Enter.")
+        st.info("Ainda não há palavras válidas. Digite uma palavra e pressione Enter.")
     else:
         st.pyplot(fig, clear_figure=True)
 
@@ -232,7 +227,6 @@ with col2:
     st.subheader("📊 Resumo")
 
     words_all = load_words()
-    # contagem com filtro
     filtered = [w for w in (filtrar_token(x) for x in words_all) if w]
     c = Counter(filtered)
 
@@ -246,9 +240,7 @@ with col2:
     else:
         st.caption("Sem dados ainda.")
 
-    # -----------------------------
-    # Controles admin
-    # -----------------------------
+    # Admin controls
     if st.session_state.is_admin:
         st.divider()
         st.subheader("🛠️ Controles (Admin)")
@@ -259,14 +251,7 @@ with col2:
             st.rerun()
 
         st.markdown("### 🧾 Histórico completo (Admin)")
-        # Mostra histórico filtrado (somente válidas) + bruto
         modo = st.radio("Visualização", ["Filtrado (válidas)", "Bruto (como salvo)"], horizontal=True)
-        if modo.startswith("Filtrado"):
-            st.write(filtered)
-        else:
-            st.write(words_all)
+        st.write(filtered if modo.startswith("Filtrado") else words_all)
     else:
-        st.caption("🔒 Histórico completo e botão de zerar: apenas para admin.")
-
-# Rodapé
-st.caption("Dica: se quiser que a nuvem atualize ainda mais rápido, você pode usar um botão 'Adicionar' em vez de Enter.")
+        st.caption("🔒 Histórico completo e zerar: apenas admin.")
