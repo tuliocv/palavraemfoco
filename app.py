@@ -205,7 +205,7 @@ with st.sidebar:
 col1, col2 = st.columns([2, 1], gap="large")
 
 with col1:
-    st.subheader("Digite uma palavra e pressione Enter")
+    st.subheader("Digite uma palavra e pressione Enter para registrar")
     st.text_input(
         "Palavra",
         key="input_word",
@@ -217,7 +217,7 @@ with col1:
     words_all = load_words()
     fig = gerar_wordcloud_fig(words_all)
 
-    st.markdown("### ☁️ Nuvem de palavras (ao vivo)")
+    st.markdown("### ☁️ Nuvem de palavras")
     if fig is None:
         st.info("Ainda não há palavras válidas. Digite uma palavra e pressione Enter.")
     else:
