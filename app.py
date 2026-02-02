@@ -197,7 +197,7 @@ with st.sidebar:
                 st.rerun()
 
     st.divider()
-    st.caption("Público: adiciona palavras. Admin: vê histórico completo e pode zerar.")
+    st.caption("Área dedicada aos administradores.")
 
 # -----------------------------
 # UI principal
