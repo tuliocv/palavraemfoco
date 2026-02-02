@@ -358,9 +358,33 @@ col1, col2 = st.columns([2, 1], gap="large")
 with col1:
     pergunta = load_question()
 
-    st.markdown("## Pergunta")
-    st.info(pergunta)
+    #st.markdown("## Pergunta")
+    #st.info(pergunta)
 
+    st.markdown("### Pergunta")
+
+st.markdown(
+    f"""
+    <div style="
+        font-size: 1.6rem;
+        font-weight: 600;
+        line-height: 1.4;
+        padding: 1rem 1.2rem;
+        border-left: 6px solid #4CAF50;
+        background-color: #f8f9fa;
+        border-radius: 6px;
+        margin-bottom: 1rem;
+    ">
+        {pergunta}
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+
+
+
+    
     st.subheader("Digite sua resposta e pressione Enter")
     st.text_input(
         "Resposta",
