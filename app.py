@@ -37,7 +37,7 @@ except Exception:
 
 import base64
 
-def add_banner(image_path: str, height_px: int = 150):
+def add_banner(image_path: str, height_px: int = 200):
     with open(image_path, "rb") as f:
         data = base64.b64encode(f.read()).decode()
 
@@ -82,7 +82,7 @@ def add_banner(image_path: str, height_px: int = 150):
         unsafe_allow_html=True
     )
 
-add_banner("assets/banner.png", height_px=140)
+add_banner("assets/banner.png", height_px=200)
 
 
 # -----------------------------
