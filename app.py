@@ -306,4 +306,199 @@ Regras:
 
 Estrutura do relatório:
 1) Visão geral (2–4 linhas)
-2)
+2) Principais temas percebidos (bullet points)
+3) Interpretações e possíveis significados (curto e direto)
+4) Pontos de atenção (viés, ruído, termos ambíguos, respostas muito curtas)
+5) Recomendações práticas (3 a 6 ações)
+6) Síntese final (1 parágrafo)
+"""
+
+    resp = client.responses.create(
+        model="gpt-4.1-mini",
+        input=prompt,
+    )
+    return getattr(resp, "output_text", "") or "(sem texto retornado)"
+
+
+# -----------------------------
+# Sidebar admin
+# -----------------------------
+with st.sidebar:
+    st.header("🔒 Área administrativa")
+
+    if ADMIN_PASS == "":
+        st.warning("Admin desabilitado: defina ADMIN_PASS nos Secrets/ENV.")
+        st.session_state.is_admin = False
+    else:
+        if not st.session_state.is_admin:
+            u = st.text_input("Usuário", value="", placeholder="admin", key="admin_user")
+            p = st.text_input("Senha", value="", type="password", placeholder="••••••••", key="admin_pass")
+            if st.button("Entrar"):
+                if check_admin(u, p):
+                    st.session_state.is_admin = True
+                    st.success("Login admin ok.")
+                    st.rerun()
+                else:
+                    st.error("Usuário ou senha inválidos.")
+        else:
+            st.success("Admin autenticado.")
+            if st.button("Sair"):
+                st.session_state.is_admin = False
+                st.rerun()
+
+    st.divider()
+    st.caption("Público: envia respostas. Admin: pergunta, histórico, zerar e relatório via ChatGPT.")
+
+
+# -----------------------------
+# UI principal
+# -----------------------------
+col1, col2 = st.columns([2, 1], gap="large")
+
+with col1:
+    pergunta = load_question()
+
+    st.markdown("### Pergunta")
+    st.info(pergunta)
+
+    st.subheader("Digite sua resposta e pressione Enter")
+    st.text_input(
+        "Resposta",
+        key="input_answer",
+        placeholder="Ex.: 'colaboração' ou 'mais prática em aula'",
+        help="A nuvem atualiza quando você pressiona Enter.",
+        on_change=on_answer_change,
+        label_visibility="collapsed",
+    )
+
+    entries = load_entries()
+    # tokens para nuvem
+    tokens = []
+    for e in entries:
+        tokens.extend(tokenizar(e.get("text", "")))
+
+    st.markdown("### ☁️ Nuvem de palavras (ao vivo)")
+    fig = gerar_wordcloud_fig(tokens)
+    if fig is None:
+        st.info("Ainda não há termos suficientes. Digite uma resposta e pressione Enter.")
+    else:
+        st.pyplot(fig, clear_figure=True)
+
+with col2:
+    st.subheader("📊 Resumo")
+
+    entries = load_entries()
+    respostas_brutas = [e.get("text", "") for e in entries]
+
+    tokens = []
+    for r in respostas_brutas:
+        tokens.extend(tokenizar(r))
+
+    cont = Counter(tokens)
+
+    st.metric("Total de respostas", len(respostas_brutas))
+    st.metric("Total de termos (filtrados)", sum(cont.values()))
+    st.metric("Termos únicos", len(cont))
+
+    st.markdown("### 🔝 Top termos")
+    top = cont.most_common(15)
+    if top:
+        st.table([{"termo": t, "freq": f} for t, f in top])
+    else:
+        st.caption("Sem dados ainda.")
+
+    # -------- Admin controls --------
+    if st.session_state.is_admin:
+        st.divider()
+        st.subheader("🛠️ Controles (Admin)")
+
+        # Pergunta
+        st.markdown("#### ✍️ Pergunta exibida ao público")
+        if not st.session_state.admin_question_draft:
+            st.session_state.admin_question_draft = load_question()
+
+        st.text_area(
+            "Editar pergunta",
+            key="admin_question_draft",
+            height=110,
+            placeholder="Digite aqui a pergunta que aparecerá para os participantes…",
+        )
+
+        cbtn1, cbtn2 = st.columns(2)
+        with cbtn1:
+            if st.button("💾 Salvar pergunta"):
+                set_question(st.session_state.admin_question_draft)
+                st.success("Pergunta atualizada.")
+                st.rerun()
+        with cbtn2:
+            if st.button("↩️ Restaurar padrão"):
+                st.session_state.admin_question_draft = DEFAULT_QUESTION
+                set_question(DEFAULT_QUESTION)
+                st.info("Pergunta restaurada para o padrão.")
+                st.rerun()
+
+        # Histórico
+        st.markdown("#### 🧾 Histórico (Admin)")
+        modo = st.radio("Visualização", ["Somente respostas (texto)", "Com data/hora"], horizontal=True)
+
+        if modo == "Somente respostas (texto)":
+            st.write(respostas_brutas[-300:])  # mostra as últimas 300
+        else:
+            linhas = []
+            for e in entries[-300:]:
+                ts = e.get("ts", None)
+                dt = time.strftime("%d/%m/%Y %H:%M:%S", time.localtime(ts)) if ts else ""
+                linhas.append({"data_hora": dt, "resposta": e.get("text", "")})
+            st.dataframe(linhas, use_container_width=True, hide_index=True)
+
+        # Zerar
+        st.markdown("#### 🧹 Limpeza")
+        if st.button("Zerar nuvem (limpar respostas)"):
+            clear_all_entries()
+            st.success("Respostas apagadas. Nuvem zerada.")
+            st.session_state.relatorio = ""
+            st.rerun()
+
+        # Relatório via ChatGPT
+        st.divider()
+        st.subheader("🧠 Relatório automático (ChatGPT)")
+
+        if not OPENAI_AVAILABLE:
+            st.warning("O pacote 'openai' não está instalado. Inclua 'openai' no requirements.txt.")
+        else:
+            st.text_input(
+                "OPENAI_API_KEY (digite na hora — não será salva no GitHub)",
+                key="admin_api_key",
+                type="password",
+                placeholder="sk-...",
+                help="A chave fica apenas na sessão do navegador (não é persistida em arquivo).",
+            )
+
+            st.caption("O relatório usa a pergunta atual + respostas coletadas (com amostra e top termos).")
+
+            if st.button("📄 Gerar relatório"):
+                with st.spinner("Gerando relatório..."):
+                    st.session_state.relatorio = gerar_relatorio_chatgpt(
+                        api_key=st.session_state.admin_api_key,
+                        pergunta=pergunta,
+                        respostas=respostas_brutas,
+                    )
+
+            if st.session_state.relatorio:
+                st.text_area("Relatório", st.session_state.relatorio, height=360)
+
+    else:
+        st.caption("🔒 Admin: define pergunta, vê histórico, zera e gera relatório.")
+
+# -----------------------------
+# Rodapé
+# -----------------------------
+st.markdown(
+    """
+    <hr style="margin-top: 3rem; margin-bottom: 1rem;">
+    <div style="text-align: center; font-size: 0.9rem; color: #6c757d;">
+        App desenvolvido pela <strong>Gerência de Avaliação</strong> • 02/02/2026
+    </div>
+    """,
+    unsafe_allow_html=True
+)
