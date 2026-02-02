@@ -462,7 +462,7 @@ with col1:
 
 
     
-    st.markdown("### Professor, digite sua resposta e pressione Enter")
+    st.markdown("#### Professor, digite sua resposta e pressione Enter")
     st.text_input(
         "Resposta",
         key="input_answer",
