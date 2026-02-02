@@ -76,7 +76,7 @@ def add_banner(image_path: str, height_px: int = 140):
         </style>
 
         <div class="top-banner">
-            <h1>Nuvem de Palavras</h1>
+            <h1></h1>
         </div>
         """,
         unsafe_allow_html=True
