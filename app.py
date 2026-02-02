@@ -468,27 +468,42 @@ with col1:
     pergunta = load_question()
 
     #st.markdown("## Pergunta")
-    st.info(pergunta)
+    #st.info(pergunta)
 
     #st.markdown("### Pergunta")
 
     st.markdown(
     f"""
-    <div style="
-        font-size: 1.6rem;
-        font-weight: 600;
-        line-height: 1.4;
-        padding: 1rem 1.2rem;
-        border-left: 6px solid #4CAF50;
-        background-color: #f8f9fa;
-        border-radius: 6px;
-        margin-bottom: 1rem;
-    ">
+    <style>
+        .question-box {{
+            font-size: 1.6rem;
+            font-weight: 600;
+            line-height: 1.4;
+            padding: 1rem 1.2rem;
+            border-left: 6px solid #4CAF50;
+            border-radius: 6px;
+            margin-bottom: 1.5rem;
+            color: #111827;            /* texto no modo claro */
+            background-color: #f8f9fa; /* fundo no modo claro */
+        }}
+
+        /* Ajuste automático para tema escuro */
+        @media (prefers-color-scheme: dark) {{
+            .question-box {{
+                color: #e5e7eb;        /* texto claro */
+                background-color: #0f172a; /* fundo escuro */
+                border-left-color: #22c55e;
+            }}
+        }}
+    </style>
+
+    <div class="question-box">
         {pergunta}
     </div>
     """,
     unsafe_allow_html=True
     )
+
 
 
 
