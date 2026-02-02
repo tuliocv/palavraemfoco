@@ -424,7 +424,7 @@ with col2:
     st.metric("Total de termos (filtrados)", sum(cont.values()))
     st.metric("Termos únicos", len(cont))
 
-    st.markdown("### 🔝 Top termos")
+    st.markdown("### 🔝 Top palavras")
     top = cont.most_common(15)
     if top:
         st.table([{"termo": t, "freq": f} for t, f in top])
@@ -512,7 +512,7 @@ with col2:
                 st.text_area("Relatório", st.session_state.relatorio, height=360)
 
     else:
-        st.caption("🔒 Admin: define pergunta, vê histórico, zera e gera relatório.")
+        st.caption(":)")
 
 # -----------------------------
 # Rodapé
