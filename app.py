@@ -13,6 +13,28 @@
 # filelock
 # openai
 
+
+import json
+import os
+import re
+import time
+import hmac
+from collections import Counter
+from pathlib import Path
+from typing import List, Dict, Optional
+
+import streamlit as st
+from wordcloud import WordCloud
+import matplotlib.pyplot as plt
+
+# OpenAI (SDK oficial)
+try:
+    from openai import OpenAI
+    OPENAI_AVAILABLE = True
+except Exception:
+    OPENAI_AVAILABLE = False
+
+
 import base64
 
 def add_banner(image_path: str, height_px: int = 140):
@@ -61,29 +83,6 @@ def add_banner(image_path: str, height_px: int = 140):
     )
 
 add_banner("assets/banner.png", height_px=140)
-
-
-
-
-import json
-import os
-import re
-import time
-import hmac
-from collections import Counter
-from pathlib import Path
-from typing import List, Dict, Optional
-
-import streamlit as st
-from wordcloud import WordCloud
-import matplotlib.pyplot as plt
-
-# OpenAI (SDK oficial)
-try:
-    from openai import OpenAI
-    OPENAI_AVAILABLE = True
-except Exception:
-    OPENAI_AVAILABLE = False
 
 
 # -----------------------------
