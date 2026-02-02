@@ -385,7 +385,7 @@ with col1:
 
 
     
-    st.subheader("Digite sua resposta e pressione Enter")
+    st.markdown("### Professor, igite sua resposta e pressione Enter")
     st.text_input(
         "Resposta",
         key="input_answer",
