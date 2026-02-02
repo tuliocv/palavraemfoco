@@ -3,3 +3,4 @@ wordcloud
 matplotlib
 filelock
 openai
+numpy
