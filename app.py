@@ -358,7 +358,7 @@ col1, col2 = st.columns([2, 1], gap="large")
 with col1:
     pergunta = load_question()
 
-    st.markdown("### Pergunta")
+    st.markdown("## Pergunta")
     st.info(pergunta)
 
     st.subheader("Digite sua resposta e pressione Enter")
