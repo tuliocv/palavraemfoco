@@ -478,7 +478,7 @@ with col1:
     for e in entries:
         tokens.extend(tokenizar(e.get("text", "")))
 
-    st.markdown("### ☁️ Nuvem de palavras")
+    st.markdown("#### ☁️ Nuvem de palavras")
     fig = gerar_wordcloud_fig(tokens)
     if fig is None:
         st.info("Ainda não há termos suficientes. Digite uma resposta e pressione Enter.")
