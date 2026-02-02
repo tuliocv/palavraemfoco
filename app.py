@@ -389,7 +389,7 @@ with col1:
     st.text_input(
         "Resposta",
         key="input_answer",
-        placeholder="Ex.: 'colaboração' ou 'mais prática em aula'",
+        placeholder="Exemplo: colaboração",
         help="A nuvem atualiza quando você pressiona Enter.",
         on_change=on_answer_change,
         label_visibility="collapsed",
