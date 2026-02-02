@@ -198,6 +198,40 @@ def tokenizar(texto: str) -> List[str]:
 # -----------------------------
 # WordCloud
 # -----------------------------
+import numpy as np
+from collections import Counter
+
+def gerar_wordcloud_fig(tokens: list[str]):
+    if not tokens:
+        return None
+
+    freqs = Counter(tokens)
+    if not freqs:
+        return None
+
+    wc = WordCloud(
+        width=1800,
+        height=900,
+        background_color=None,      # fundo transparente (moderno)
+        mode="RGBA",
+        colormap="magma",           # paleta moderna (alternativas: viridis, plasma, inferno)
+        prefer_horizontal=0.92,
+        relative_scaling=0.4,
+        min_font_size=12,
+        max_words=220,
+        collocations=False,
+        contour_width=2,
+        contour_color="#111827",    # cinza escuro elegante
+        random_state=42
+    ).generate_from_frequencies(freqs)
+
+    fig, ax = plt.subplots(figsize=(16, 7), dpi=160)
+    ax.imshow(wc, interpolation="bilinear")
+    ax.axis("off")
+    fig.patch.set_alpha(0.0)       # remove fundo branco do matplotlib
+    return fig
+
+"""
 def gerar_wordcloud_fig(tokens: List[str]) -> Optional[plt.Figure]:
     if not tokens:
         return None
@@ -220,7 +254,7 @@ def gerar_wordcloud_fig(tokens: List[str]) -> Optional[plt.Figure]:
     ax.imshow(wc, interpolation="bilinear")
     ax.axis("off")
     return fig
-
+"""
 
 # -----------------------------
 # Estado
