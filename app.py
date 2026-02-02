@@ -1,6 +1,17 @@
 # app.py
-# Público: acessa sem login e digita respostas (1 por vez) -> nuvem ao vivo
-# Admin (login/senha): pode (1) definir a PERGUNTA exibida ao público, (2) zerar nuvem, (3) ver histórico
+# Público: acessa sem login e digita respostas (texto curto). A nuvem atualiza ao vivo.
+# Admin (login/senha): pode (1) definir a pergunta, (2) ver histórico, (3) zerar, (4) gerar relatório via ChatGPT.
+#
+# IMPORTANTE:
+# - A API Key do ChatGPT é informada pelo admin na hora (não fica no GitHub).
+# - Para Streamlit Cloud: configure ADMIN_USER / ADMIN_PASS em Secrets (Manage app -> Settings -> Secrets).
+#
+# requirements.txt sugerido:
+# streamlit
+# wordcloud
+# matplotlib
+# filelock
+# openai
 
 import json
 import os
@@ -9,10 +20,19 @@ import time
 import hmac
 from collections import Counter
 from pathlib import Path
+from typing import List, Dict, Optional
 
 import streamlit as st
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
+
+# OpenAI (SDK oficial)
+try:
+    from openai import OpenAI
+    OPENAI_AVAILABLE = True
+except Exception:
+    OPENAI_AVAILABLE = False
+
 
 # -----------------------------
 # Config
@@ -22,23 +42,42 @@ st.title("☁️ Nuvem de Palavras")
 
 DATA_PATH = Path("data_words.json")
 
-STOPWORDS_PT = {
-    "a","à","ao","aos","as","às","com","como","da","das","de","do","dos","e","é","em","entre",
-    "na","nas","no","nos","o","os","ou","para","por","que","se","sem","um","uma","não","nao",
-    "sim","já","tá","tô","vc","vcs","você","vocês","me","minha","meu","meus","minhas",
-    "sua","seu","suas","seus","isso","isto","essa","esse","esta","este","aqui","ali","lá","la",
-}
+DEFAULT_QUESTION = "Digite uma palavra ou pequena frase que represente sua percepção sobre o tema."
 
-DEFAULT_QUESTION = "Digite uma palavra que represente sua percepção sobre o tema."
+# Stopwords PT-BR (mais completa; ajuste livre)
+STOPWORDS_PT = {
+    # artigos / preposições / conjunções
+    "a","à","ao","aos","as","às","com","como","da","das","de","do","dos","e","é","em","entre","para","por","pra",
+    "pro","pros","pra","pras","no","nos","na","nas","num","numa","nuns","numas","o","os","um","uma","uns","umas",
+    "ou","nem","mas","porque","pois","que","quem","qual","quais","quando","onde","quanto","quantos","quantas",
+    "se","sem","sobre","sob","até","apos","após","desde","durante","antes","depois","também","tb","tmb",
+    "já","ainda","sempre","nunca","muito","muita","muitos","muitas","mais","menos","bem","mal","lá","la","aqui","ali",
+    "cada","todo","toda","todos","todas","algo","alguem","alguém","ninguem","ninguém","mesmo","mesma","mesmos","mesmas",
+    "outro","outra","outros","outras",
+
+    # pronomes / formas comuns
+    "eu","tu","ele","ela","nós","nos","vós","vos","eles","elas","me","te","se","lhe","lhes",
+    "minha","meu","meus","minhas","sua","seu","seus","suas","nossa","nosso","nossos","nossas",
+    "essa","esse","isso","isto","esta","este","aquelas","aqueles","aquela","aquele",
+    "está","estao","estão","tá","ta","tô","to","era","eram","ser","sou","são",
+    "vai","vou","foi","foram","tem","têm","ter","tinha","tinham","faz","fazem","feito",
+
+    # respostas curtas / internetês
+    "sim","não","nao","ok","oks","blz","beleza","tipo","assim","kk","kkk","haha","rs","rss","mds",
+
+    # ruído típico
+    "resposta","respostas","pergunta","perguntas","participante","participantes","tema","assunto",
+    "aula","curso","uc","disciplina"  # remova se quiser contar esses termos
+}
 
 # -----------------------------
 # Admin auth via secrets/env
 # -----------------------------
-# Streamlit Cloud: Manage app -> Settings -> Secrets
+# No Streamlit Cloud, use Secrets (não commitar):
 # ADMIN_USER="admin"
 # ADMIN_PASS="senha_forte"
 ADMIN_USER = st.secrets.get("ADMIN_USER", os.getenv("ADMIN_USER", "admin"))
-ADMIN_PASS = st.secrets.get("ADMIN_PASS", os.getenv("ADMIN_PASS", ""))  # configure no Cloud secrets
+ADMIN_PASS = st.secrets.get("ADMIN_PASS", os.getenv("ADMIN_PASS", ""))  # deixe vazio até configurar
 
 def check_admin(user: str, pwd: str) -> bool:
     return (
@@ -46,14 +85,10 @@ def check_admin(user: str, pwd: str) -> bool:
         and hmac.compare_digest(pwd or "", ADMIN_PASS or "")
     )
 
+
 # -----------------------------
-# Lock (opcional, recomendado)
+# Lock (recomendado)
 # -----------------------------
-# requirements.txt recomendado:
-# streamlit
-# wordcloud
-# matplotlib
-# filelock
 try:
     from filelock import FileLock
     LOCK_AVAILABLE = True
@@ -67,60 +102,63 @@ def with_lock(fn):
     with lock:
         return fn()
 
+
 # -----------------------------
-# Persistência
+# Persistência (pergunta + respostas)
 # -----------------------------
-def _empty_data():
+def _empty_data() -> Dict:
     return {
         "question": DEFAULT_QUESTION,
-        "words": [],
+        "entries": [],  # lista de {"text": "...", "ts": 1234567890}
         "created_at": time.time(),
         "updated_at": time.time(),
     }
 
-def _read_data():
+def _read_data() -> Dict:
     if not DATA_PATH.exists():
         return _empty_data()
     try:
         with open(DATA_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
-            # garante chaves
-            if "question" not in data:
-                data["question"] = DEFAULT_QUESTION
-            if "words" not in data:
-                data["words"] = []
-            return data
+        if "question" not in data:
+            data["question"] = DEFAULT_QUESTION
+        if "entries" not in data:
+            data["entries"] = []
+        return data
     except Exception:
         return _empty_data()
 
-def _write_data(data: dict):
+def _write_data(data: Dict):
     data["updated_at"] = time.time()
     with open(DATA_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-def load_data() -> dict:
+def load_data() -> Dict:
     def inner():
         return _read_data()
     return with_lock(inner)
 
-def load_words() -> list[str]:
-    return load_data().get("words", []) or []
-
 def load_question() -> str:
     q = load_data().get("question", DEFAULT_QUESTION)
-    return (q or DEFAULT_QUESTION).strip()
+    q = (q or DEFAULT_QUESTION).strip()
+    return q if q else DEFAULT_QUESTION
 
-def append_word(token: str):
+def load_entries() -> List[Dict]:
+    return load_data().get("entries", []) or []
+
+def append_entry(text: str):
     def inner():
         data = _read_data()
-        data["words"] = (data.get("words", []) or []) + [token]
+        entries = data.get("entries", []) or []
+        entries.append({"text": text, "ts": time.time()})
+        data["entries"] = entries
         _write_data(data)
     return with_lock(inner)
 
-def clear_all_words():
+def clear_all_entries():
     def inner():
         data = _read_data()
-        data["words"] = []
+        data["entries"] = []
         _write_data(data)
     return with_lock(inner)
 
@@ -131,39 +169,42 @@ def set_question(new_q: str):
         _write_data(data)
     return with_lock(inner)
 
+
 # -----------------------------
-# Texto → token
+# Texto → tokens (para nuvem)
 # -----------------------------
-def limpar_token(t: str) -> str:
+_word_re = re.compile(r"[a-zà-ÿ]+", flags=re.IGNORECASE)
+
+def normalizar_texto(t: str) -> str:
     t = (t or "").lower().strip()
-    # mantém letras (inclui acentos) e remove tudo que não for letra
-    t = re.sub(r"[^a-zà-ÿ]", "", t)
+    t = re.sub(r"\s+", " ", t)
     return t
 
-def filtrar_token(token: str) -> str | None:
-    token = limpar_token(token)
-    if not token:
-        return None
-    if token in STOPWORDS_PT:
-        return None
-    if len(token) < 2:
-        return None
-    return token
+def tokenizar(texto: str) -> List[str]:
+    texto = normalizar_texto(texto)
+    tokens = _word_re.findall(texto)
+    # remove stopwords, tokens muito curtos e números (já filtrados pelo regex)
+    out = []
+    for tk in tokens:
+        tk = tk.strip().lower()
+        if len(tk) < 2:
+            continue
+        if tk in STOPWORDS_PT:
+            continue
+        out.append(tk)
+    return out
+
 
 # -----------------------------
 # WordCloud
 # -----------------------------
-def gerar_wordcloud_fig(words: list[str]):
-    valid = []
-    for w in words:
-        w2 = filtrar_token(w)
-        if w2:
-            valid.append(w2)
-
-    if not valid:
+def gerar_wordcloud_fig(tokens: List[str]) -> Optional[plt.Figure]:
+    if not tokens:
         return None
 
-    text = " ".join(valid)
+    text = " ".join(tokens).strip()
+    if not text:
+        return None
 
     wc = WordCloud(
         width=1600,
@@ -180,14 +221,12 @@ def gerar_wordcloud_fig(words: list[str]):
     ax.axis("off")
     return fig
 
+
 # -----------------------------
 # Estado
 # -----------------------------
 if "is_admin" not in st.session_state:
     st.session_state.is_admin = False
-
-if "last_added" not in st.session_state:
-    st.session_state.last_added = ""
 
 if "input_answer" not in st.session_state:
     st.session_state.input_answer = ""
@@ -195,158 +234,76 @@ if "input_answer" not in st.session_state:
 if "admin_question_draft" not in st.session_state:
     st.session_state.admin_question_draft = ""
 
+if "admin_api_key" not in st.session_state:
+    st.session_state.admin_api_key = ""  # o admin digita na hora
+
+if "relatorio" not in st.session_state:
+    st.session_state.relatorio = ""
+
 # -----------------------------
-# Callback do input do público
+# Callback público: adiciona resposta
 # -----------------------------
 def on_answer_change():
     raw = st.session_state.get("input_answer", "")
-    token = filtrar_token(raw)
-
-    # sempre limpa o campo (permitido no callback)
-    st.session_state.input_answer = ""
-
-    if not token:
+    st.session_state.input_answer = ""  # limpa campo (OK no callback)
+    raw = (raw or "").strip()
+    if not raw:
         return
+    # limita tamanho para evitar abuso acidental
+    raw = raw[:200]
+    append_entry(raw)
 
-    # evita duplicar no rerun
-    if token == st.session_state.get("last_added", ""):
-        return
-
-    append_word(token)
-    st.session_state.last_added = token
 
 # -----------------------------
-# Sidebar admin
+# ChatGPT (somente admin) - gerar relatório
 # -----------------------------
-with st.sidebar:
-    st.header("🔒 Área administrativa")
+def gerar_relatorio_chatgpt(api_key: str, pergunta: str, respostas: List[str]) -> str:
+    if not OPENAI_AVAILABLE:
+        return "⚠️ O pacote 'openai' não está instalado. Adicione 'openai' no requirements.txt."
 
-    if ADMIN_PASS == "":
-        st.warning("Admin desabilitado: defina ADMIN_PASS nos Secrets/ENV.")
-        st.session_state.is_admin = False
-    else:
-        if not st.session_state.is_admin:
-            u = st.text_input("Usuário", value="", placeholder="admin", key="admin_user")
-            p = st.text_input("Senha", value="", type="password", placeholder="••••••••", key="admin_pass")
-            if st.button("Entrar"):
-                if check_admin(u, p):
-                    st.session_state.is_admin = True
-                    st.success("Login admin ok.")
-                    st.rerun()
-                else:
-                    st.error("Usuário ou senha inválidos.")
-        else:
-            st.success("Admin autenticado.")
-            if st.button("Sair"):
-                st.session_state.is_admin = False
-                st.rerun()
+    api_key = (api_key or "").strip()
+    if not api_key:
+        return "⚠️ Informe a OPENAI_API_KEY no campo de Admin para gerar o relatório."
 
-    st.divider()
-    st.caption("Público: adiciona palavras. Admin: define pergunta, vê histórico e pode zerar.")
+    client = OpenAI(api_key=api_key)
 
-# -----------------------------
-# UI principal
-# -----------------------------
-col1, col2 = st.columns([2, 1], gap="large")
+    # reduz volume: pega todas (até um limite) e também um resumo estatístico simples
+    # (você pode ajustar limites para custo/velocidade)
+    respostas = [r.strip() for r in respostas if r and r.strip()]
+    total = len(respostas)
 
-with col1:
-    # Pergunta definida pelo admin (visível ao público)
-    pergunta = load_question()
-    st.markdown("### Pergunta")
-    st.info(pergunta)
+    # tokens para estatísticas
+    all_tokens = []
+    for r in respostas:
+        all_tokens.extend(tokenizar(r))
+    top_tokens = Counter(all_tokens).most_common(25)
 
-    st.subheader("Digite sua resposta (uma palavra) e pressione Enter")
-    st.text_input(
-        "Resposta",
-        key="input_answer",
-        placeholder="Ex.: colaboração",
-        help="A nuvem atualiza quando você pressiona Enter.",
-        on_change=on_answer_change,
-        label_visibility="collapsed",
-    )
+    # amostra das respostas (para contexto qualitativo)
+    sample = respostas[:250]  # limite simples
+    respostas_bullets = "\n".join(f"- {s}" for s in sample)
 
-    words_all = load_words()
-    fig = gerar_wordcloud_fig(words_all)
+    top_tokens_text = "\n".join([f"- {w}: {c}" for w, c in top_tokens])
 
-    st.markdown("### ☁️ Nuvem de palavras (ao vivo)")
-    if fig is None:
-        st.info("Ainda não há palavras válidas. Digite uma palavra e pressione Enter.")
-    else:
-        st.pyplot(fig, clear_figure=True)
+    prompt = f"""
+Você é um analista de pesquisa educacional. Gere um relatório em português (tom institucional, claro e objetivo)
+com base na pergunta e nas respostas coletadas.
 
-with col2:
-    st.subheader("📊 Resumo")
+Pergunta:
+{pergunta}
 
-    words_all = load_words()
-    filtered = [w for w in (filtrar_token(x) for x in words_all) if w]
-    c = Counter(filtered)
+Métricas rápidas:
+- Total de respostas: {total}
 
-    st.metric("Total de palavras", len(filtered))
-    st.metric("Palavras únicas", len(c))
+Top termos (após filtragem de stopwords):
+{top_tokens_text if top_tokens_text else "- (sem termos suficientes)"}
 
-    st.markdown("### 🔝 Top palavras")
-    top = c.most_common(15)
-    if top:
-        st.table([{"palavra": p, "freq": f} for p, f in top])
-    else:
-        st.caption("Sem dados ainda.")
+Respostas (amostra/lista):
+{respostas_bullets if respostas_bullets else "- (sem respostas)"}
 
-    # -------- Admin controls --------
-    if st.session_state.is_admin:
-        st.divider()
-        st.subheader("🛠️ Controles (Admin)")
+Regras:
+- Não invente dados que não estejam nas respostas.
+- Se houver ambiguidade/baixa evidência, sinalize como hipótese.
 
-        # Pergunta (cadastro/edição)
-        st.markdown("#### ✍️ Pergunta exibida ao público")
-
-        # carrega a pergunta atual como rascunho (apenas na primeira vez)
-        if not st.session_state.admin_question_draft:
-            st.session_state.admin_question_draft = load_question()
-
-        st.text_area(
-            "Editar pergunta",
-            key="admin_question_draft",
-            height=120,
-            placeholder="Digite aqui a pergunta que aparecerá para os participantes…",
-        )
-
-        cbtn1, cbtn2 = st.columns(2)
-        with cbtn1:
-            if st.button("💾 Salvar pergunta"):
-                set_question(st.session_state.admin_question_draft)
-                st.success("Pergunta atualizada.")
-                st.rerun()
-        with cbtn2:
-            if st.button("↩️ Restaurar padrão"):
-                st.session_state.admin_question_draft = DEFAULT_QUESTION
-                set_question(DEFAULT_QUESTION)
-                st.info("Pergunta restaurada para o padrão.")
-                st.rerun()
-
-        # Zerar nuvem
-        st.markdown("#### 🧹 Limpeza")
-        if st.button("Zerar nuvem (limpar tudo)"):
-            clear_all_words()
-            st.success("Nuvem zerada.")
-            st.rerun()
-
-        # Histórico completo
-        st.markdown("#### 🧾 Histórico completo (Admin)")
-        modo = st.radio("Visualização", ["Filtrado (válidas)", "Bruto (como salvo)"], horizontal=True)
-        st.write(filtered if modo.startswith("Filtrado") else words_all)
-
-    else:
-        st.caption("🔒 Definir pergunta, histórico completo e zerar: apenas admin.")
-
-# -----------------------------
-# Rodapé
-# -----------------------------
-st.markdown(
-    """
-    <hr style="margin-top: 3rem; margin-bottom: 1rem;">
-    <div style="text-align: center; font-size: 0.9rem; color: #6c757d;">
-        App desenvolvido pela <strong>Gerência de Avaliação</strong> • 02/02/2026
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+Estrutura do relatório:
+1) Visão geral (2–4 linhas)
+2)
