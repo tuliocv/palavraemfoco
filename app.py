@@ -231,31 +231,6 @@ def gerar_wordcloud_fig(tokens: list[str]):
     fig.patch.set_alpha(0.0)       # remove fundo branco do matplotlib
     return fig
 
-"""
-def gerar_wordcloud_fig(tokens: List[str]) -> Optional[plt.Figure]:
-    if not tokens:
-        return None
-
-    text = " ".join(tokens).strip()
-    if not text:
-        return None
-
-    wc = WordCloud(
-        width=1600,
-        height=800,
-        background_color="white",
-        colormap="viridis",
-        stopwords=STOPWORDS_PT,
-        collocations=False,
-        max_words=250,
-    ).generate(text)
-
-    fig, ax = plt.subplots(figsize=(16, 8))
-    ax.imshow(wc, interpolation="bilinear")
-    ax.axis("off")
-    return fig
-"""
-
 # -----------------------------
 # Estado
 # -----------------------------
