@@ -385,7 +385,7 @@ with col1:
 
 
     
-    st.markdown("### Professor, igite sua resposta e pressione Enter")
+    st.markdown("### Professor, digite sua resposta e pressione Enter")
     st.text_input(
         "Resposta",
         key="input_answer",
@@ -401,7 +401,7 @@ with col1:
     for e in entries:
         tokens.extend(tokenizar(e.get("text", "")))
 
-    st.markdown("### ☁️ Nuvem de palavras (ao vivo)")
+    st.markdown("### ☁️ Nuvem de palavras")
     fig = gerar_wordcloud_fig(tokens)
     if fig is None:
         st.info("Ainda não há termos suficientes. Digite uma resposta e pressione Enter.")
