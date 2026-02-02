@@ -125,7 +125,7 @@ st.markdown(
     <style>
         /* Espaçamento entre blocos principais */
         .block-container {
-            padding-top: 2rem;
+            padding-top: 2.5rem;
         }
 
         /* Espaço abaixo de títulos */
