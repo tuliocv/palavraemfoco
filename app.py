@@ -201,6 +201,11 @@ def tokenizar(texto: str) -> List[str]:
 import numpy as np
 from collections import Counter
 
+import colorsys
+from collections import Counter
+from wordcloud import WordCloud
+import matplotlib.pyplot as plt
+
 def gerar_wordcloud_fig(tokens: list[str]):
     if not tokens:
         return None
@@ -209,26 +214,38 @@ def gerar_wordcloud_fig(tokens: list[str]):
     if not freqs:
         return None
 
+    # cor por frequência (mais frequente = mais "quente"/vivo)
+    max_f = max(freqs.values())
+
+    def color_func(word, font_size, position, orientation, random_state=None, **kwargs):
+        f = freqs.get(word, 1) / max_f  # 0..1
+        # hue varia conforme frequência (0 = vermelho, 0.66 = azul)
+        hue = (0.66 - 0.66 * f)
+        sat = 0.95
+        val = 0.95
+        r, g, b = colorsys.hsv_to_rgb(hue, sat, val)
+        return f"rgb({int(r*255)}, {int(g*255)}, {int(b*255)})"
+
     wc = WordCloud(
         width=1800,
         height=900,
-        background_color=None,      # fundo transparente (moderno)
-        mode="RGBA",
-        colormap="magma",           # paleta moderna (alternativas: viridis, plasma, inferno)
-        prefer_horizontal=0.92,
-        relative_scaling=0.4,
-        min_font_size=12,
-        max_words=220,
+        background_color="white",   # <- deixa as cores aparecerem bem
+        mode="RGB",
+        prefer_horizontal=0.95,
+        relative_scaling=1.0,       # <- AUMENTA a diferença por frequência
+        min_font_size=10,
+        max_font_size=260,          # <- permite palavras MUITO maiores
+        max_words=250,
         collocations=False,
-        contour_width=2,
-        contour_color="#111827",    # cinza escuro elegante
-        random_state=42
+        random_state=42,
+        margin=2
     ).generate_from_frequencies(freqs)
+
+    wc = wc.recolor(color_func=color_func, random_state=42)
 
     fig, ax = plt.subplots(figsize=(16, 7), dpi=160)
     ax.imshow(wc, interpolation="bilinear")
     ax.axis("off")
-    fig.patch.set_alpha(0.0)       # remove fundo branco do matplotlib
     return fig
 
 # -----------------------------
