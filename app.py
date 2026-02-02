@@ -37,7 +37,7 @@ except Exception:
 
 import base64
 
-def add_banner(image_path: str, height_px: int = 140):
+def add_banner(image_path: str, height_px: int = 150):
     with open(image_path, "rb") as f:
         data = base64.b64encode(f.read()).decode()
 
