@@ -2,3 +2,4 @@ streamlit
 wordcloud
 matplotlib
 filelock
+openai
