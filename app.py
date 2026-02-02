@@ -13,6 +13,58 @@
 # filelock
 # openai
 
+import base64
+
+def add_banner(image_path: str, height_px: int = 140):
+    with open(image_path, "rb") as f:
+        data = base64.b64encode(f.read()).decode()
+
+    st.markdown(
+        f"""
+        <style>
+        .top-banner {{
+            height: {height_px}px;
+            background-image: url("data:image/png;base64,{data}");
+            background-size: cover;
+            background-position: center;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            position: relative;
+            overflow: hidden;
+        }}
+        .top-banner::after {{
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.20); /* leve overlay p/ dar contraste */
+        }}
+        .top-banner h1 {{
+            position: absolute;
+            right: 24px;
+            top: 50%;
+            transform: translateY(-50%);
+            margin: 0;
+            color: white;
+            font-size: 2.0rem;
+            font-weight: 800;
+            z-index: 2;
+            text-align: right;
+            line-height: 1.1;
+        }}
+        </style>
+
+        <div class="top-banner">
+            <h1>Nuvem de Palavras</h1>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+add_banner("assets/banner.png", height_px=140)
+
+
+
+
 import json
 import os
 import re
