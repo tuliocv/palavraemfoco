@@ -392,7 +392,7 @@ with col1:
 
     # Público só vê após "Revelar"
     if (not st.session_state.is_admin) and (not public_show):
-        st.info("🔒 Coleta em andamento. A nuvem será revelada pelo administrador ao final.")
+        st.info("🔒 Coleta em andamento. A nuvem será revelada ao final.")
     else:
         tokens_all = compute_tokens_from_respostas(respostas_all)
         fig = gerar_wordcloud_fig(tokens_all)
