@@ -10,15 +10,12 @@
 # matplotlib
 # filelock
 # openai
-#
-# (Opcional para banner via PIL: pillow — NÃO é necessário aqui)
 
 import json
 import os
 import re
 import time
 import hmac
-import base64
 import colorsys
 from collections import Counter
 from pathlib import Path
@@ -38,45 +35,13 @@ except Exception:
 # =============================
 # CONFIG (PRECISA SER O PRIMEIRO st.*)
 # =============================
-st.set_page_config(page_title="WordPulse - v1", layout="wide")
+st.set_page_config(page_title="WordPulse • Modelagem de Dados", layout="wide")
 
 # =============================
-# Banner
+# Header (sem banner)
 # =============================
-def add_banner(image_path: str, height_px: int = 200):
-    try:
-        with open(image_path, "rb") as f:
-            data = base64.b64encode(f.read()).decode()
-        st.markdown(
-            f"""
-            <style>
-            .top-banner {{
-                height: {height_px}px;
-                background-image: url("data:image/png;base64,{data}");
-                background-size: cover;
-                background-position: center;
-                border-radius: 12px;
-                margin-bottom: 1rem;
-                position: relative;
-                overflow: hidden;
-            }}
-            .top-banner::after {{
-                content: "";
-                position: absolute;
-                inset: 0;
-                background: rgba(0,0,0,0.18);
-            }}
-            </style>
-
-            <div class="top-banner"></div>
-            """,
-            unsafe_allow_html=True
-        )
-    except FileNotFoundError:
-        st.warning("Banner não encontrado em assets/banner.png (ok continuar sem banner).")
-
-add_banner("assets/banner.png", height_px=210)
-st.markdown("## ☁️ WordPulse - A Nuvem de Palavras da Gerência de Avaliação")
+st.markdown("## ☁️ WordPulse • Modelagem de Dados para Tomada de Decisão")
+st.caption("Responda com 1 palavra ou expressão curta. Sua resposta entra na nuvem quando o professor revelar.")
 
 # =============================
 # CSS (espaçamento + ajustes gerais)
@@ -84,11 +49,21 @@ st.markdown("## ☁️ WordPulse - A Nuvem de Palavras da Gerência de Avaliaç�
 st.markdown(
     """
     <style>
-        .block-container { padding-top: 2.2rem; }
-        h1, h2, h3 { margin-bottom: 1.2rem !important; }
-        p { margin-bottom: 1.0rem !important; }
-        div[data-baseweb="input"] { margin-bottom: 1.6rem; }
-        div.stAlert { margin-top: 1.2rem; margin-bottom: 1.2rem; }
+        .block-container { padding-top: 2.0rem; }
+        h1, h2, h3 { margin-bottom: 1.1rem !important; }
+        p { margin-bottom: 0.9rem !important; }
+        div[data-baseweb="input"] { margin-bottom: 1.4rem; }
+        div.stAlert { margin-top: 1.1rem; margin-bottom: 1.1rem; }
+        .chip {
+            display: inline-block;
+            padding: 0.25rem 0.55rem;
+            border-radius: 999px;
+            background: rgba(34,197,94,0.12);
+            color: #16a34a;
+            font-size: 0.85rem;
+            margin-right: 0.35rem;
+            margin-bottom: 0.35rem;
+        }
     </style>
     """,
     unsafe_allow_html=True
@@ -98,7 +73,9 @@ st.markdown(
 # Paths / Defaults
 # =============================
 DATA_PATH = Path("data_words.json")
-DEFAULT_QUESTION = "Digite uma palavra que represente sua percepção sobre o tema."
+DEFAULT_QUESTION = (
+    "Em 1 palavra (ou expressão curta), o que mais impacta a qualidade de uma decisão baseada em dados?"
+)
 
 STOPWORDS_PT = {
     "a","à","ao","aos","as","às","com","como","da","das","de","do","dos","e","é","em","entre","para","por","pra",
@@ -141,7 +118,7 @@ def _empty_data() -> Dict:
     return {
         "question": DEFAULT_QUESTION,
         "entries": [],                 # {"text": "...", "ts": 123}
-        "public_show_cloud": False,    # 👈 público só vê após revelar
+        "public_show_cloud": False,    # público só vê após revelar
         "created_at": time.time(),
         "updated_at": time.time(),
     }
@@ -228,7 +205,7 @@ def tokenizar(texto: str) -> List[str]:
     return out
 
 # =============================
-# WordCloud moderno (freq -> cor e tamanho) + vertical/horizontal
+# WordCloud (freq -> cor e tamanho)
 # =============================
 def gerar_wordcloud_fig(tokens: List[str]):
     if not tokens:
@@ -242,8 +219,8 @@ def gerar_wordcloud_fig(tokens: List[str]):
 
     def color_func(word, font_size, position, orientation, random_state=None, **kwargs):
         f = freqs.get(word, 1) / max_f
-        hue = 0.66 - 0.66 * f  # azul -> vermelho conforme frequência
-        sat = 0.95
+        hue = 0.62 - 0.62 * f  # azul -> vermelho conforme frequência
+        sat = 0.92
         val = 0.95
         r, g, b = colorsys.hsv_to_rgb(hue, sat, val)
         return f"rgb({int(r*255)}, {int(g*255)}, {int(b*255)})"
@@ -253,8 +230,8 @@ def gerar_wordcloud_fig(tokens: List[str]):
         height=900,
         background_color="white",
         mode="RGB",
-        prefer_horizontal=0.65,  # horizontal + vertical
-        relative_scaling=1.0,    # diferencia bem por frequência
+        prefer_horizontal=0.70,
+        relative_scaling=1.0,
         min_font_size=10,
         max_font_size=260,
         max_words=250,
@@ -326,16 +303,15 @@ with st.sidebar:
                 st.rerun()
 
     st.divider()
-    st.caption("Área dedicada aos administradores.")
+    st.caption("Professor: defina a pergunta, acompanhe a coleta e revele a nuvem ao final.")
 
 # =============================
-# Dados (carregar uma vez)
+# Dados
 # =============================
 public_show = load_public_show_cloud()
 entries_all = load_entries()
 respostas_all = [e.get("text", "") for e in entries_all]
 
-# tokens só são calculados quando necessário (admin ou público após revelado)
 def compute_tokens_from_respostas(respostas: List[str]) -> List[str]:
     toks: List[str] = []
     for r in respostas:
@@ -350,25 +326,24 @@ col1, col2 = st.columns([2, 1], gap="large")
 with col1:
     pergunta = load_question()
 
-    # Caixa pergunta com tema claro/escuro
     st.markdown(
         f"""
         <style>
             .question-box {{
-                font-size: 1.6rem;
+                font-size: 1.5rem;
                 font-weight: 650;
                 line-height: 1.5;
                 padding: 1rem 1.2rem;
                 border-left: 6px solid #22c55e;
-                border-radius: 10px;
-                margin-bottom: 1.6rem;
+                border-radius: 12px;
+                margin-bottom: 1.2rem;
                 color: #111827;
-                background-color: #f8f9fa;
+                background-color: #f8fafc;
             }}
             @media (prefers-color-scheme: dark) {{
                 .question-box {{
                     color: #e5e7eb;
-                    background-color: #0f172a;
+                    background-color: #0b1220;
                     border-left-color: #22c55e;
                 }}
             }}
@@ -378,21 +353,34 @@ with col1:
         unsafe_allow_html=True
     )
 
-    st.markdown("#### Professor, digite sua resposta e pressione Enter")
+    st.markdown("**Exemplos de resposta:**")
+    st.markdown(
+        """
+        <span class="chip">qualidade</span>
+        <span class="chip">governança</span>
+        <span class="chip">granularidade</span>
+        <span class="chip">consistência</span>
+        <span class="chip">modelo dimensional</span>
+        <span class="chip">integridade</span>
+        <span class="chip">contexto</span>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.markdown("#### 🧑‍🎓 Digite sua resposta e pressione Enter")
     st.text_input(
         "Resposta",
         key="input_answer",
-        placeholder="Exemplo: colaboração",
-        help="Sua resposta será registrada ao pressionar Enter.",
+        placeholder="Ex.: qualidade dos dados",
+        help="Digite 1 palavra ou uma expressão curta e pressione Enter.",
         on_change=on_answer_change,
         label_visibility="collapsed",
     )
 
     st.markdown("#### ☁️ Nuvem de palavras")
 
-    # Público só vê após "Revelar"
     if (not st.session_state.is_admin) and (not public_show):
-        st.info("🔒 Coleta em andamento. A nuvem será revelada ao final.")
+        st.info("🔒 Coleta em andamento. A nuvem será revelada ao final pelo professor.")
     else:
         tokens_all = compute_tokens_from_respostas(respostas_all)
         fig = gerar_wordcloud_fig(tokens_all)
@@ -402,16 +390,22 @@ with col1:
             st.pyplot(fig, clear_figure=True)
 
 with col2:
-    # Público: coluna leve (sem top/explorar)
     if not st.session_state.is_admin:
-        st.subheader("📌 Informações")
-        st.metric("Total de respostas recebidas", len(respostas_all))
+        st.subheader("📌 Painel do aluno")
+        st.metric("Respostas enviadas (total)", len(respostas_all))
         if public_show:
-            st.caption("A nuvem foi revelada pelo administrador.")
+            st.success("A nuvem foi revelada pelo professor.")
         else:
-            st.caption("Envie sua resposta. A nuvem será exibida ao final.")
+            st.caption("Envie sua resposta agora. A nuvem será exibida ao final da dinâmica.")
+
+        st.divider()
+        st.markdown("**Dica:** responda com algo que ajude decisões melhores com dados.")
+        st.markdown(
+            "- Pode ser **um conceito** (ex.: *governança*)\n"
+            "- Ou **uma etapa** (ex.: *modelagem dimensional*)\n"
+            "- Ou **um problema comum** (ex.: *inconsistência*)"
+        )
     else:
-        # ADMIN: resumo + top + explorar + controles
         st.subheader("📊 Resumo (Admin)")
 
         tokens_all = compute_tokens_from_respostas(respostas_all)
@@ -421,7 +415,7 @@ with col2:
         st.metric("Total de termos (filtrados)", sum(cont.values()))
         st.metric("Termos únicos", len(cont))
 
-        st.markdown("### 🔝 Top palavras (Admin)")
+        st.markdown("### 🔝 Top termos (Admin)")
         top = cont.most_common(15)
         if top:
             st.table([{"termo": t, "freq": f} for t, f in top])
@@ -429,10 +423,10 @@ with col2:
             st.caption("Sem dados ainda.")
 
         st.divider()
-        st.subheader("🔎 Explorar uma palavra (Admin)")
+        st.subheader("🔎 Explorar um termo (Admin)")
         termos_disponiveis = [t for t, _ in cont.most_common(80)]
         if termos_disponiveis:
-            termo_sel = st.selectbox("Selecione uma palavra", termos_disponiveis, index=0)
+            termo_sel = st.selectbox("Selecione um termo", termos_disponiveis, index=0)
             st.write(f"**Frequência:** {cont.get(termo_sel, 0)}")
 
             exemplos = [txt for txt in respostas_all if termo_sel.lower() in (txt or "").lower()]
@@ -469,8 +463,7 @@ with col2:
         st.divider()
         st.subheader("🛠️ Controles (Admin)")
 
-        # Pergunta
-        st.markdown("#### ✍️ Pergunta exibida ao público")
+        st.markdown("#### ✍️ Pergunta exibida aos alunos")
         if not st.session_state.admin_question_draft:
             st.session_state.admin_question_draft = load_question()
 
@@ -478,7 +471,7 @@ with col2:
             "Editar pergunta",
             key="admin_question_draft",
             height=110,
-            placeholder="Digite aqui a pergunta que aparecerá para os participantes…",
+            placeholder="Digite aqui a pergunta que aparecerá para os alunos…",
         )
 
         b1, b2 = st.columns(2)
@@ -494,7 +487,6 @@ with col2:
                 st.info("Pergunta restaurada para o padrão.")
                 st.rerun()
 
-        # Histórico
         st.markdown("#### 🧾 Histórico (Admin)")
         modo = st.radio("Visualização", ["Somente respostas (texto)", "Com data/hora"], horizontal=True)
 
@@ -508,17 +500,14 @@ with col2:
                 linhas.append({"data_hora": dt, "resposta": e.get("text", "")})
             st.dataframe(linhas, use_container_width=True, hide_index=True)
 
-        # Zerar
         st.markdown("#### 🧹 Limpeza")
         if st.button("Zerar nuvem (limpar respostas)"):
             clear_all_entries()
             st.success("Respostas apagadas. Nuvem zerada.")
             st.session_state.relatorio = ""
-            # Quando zera, volta para coleta (opcional)
             set_public_show_cloud(False)
             st.rerun()
 
-        # Relatório via ChatGPT (somente admin)
         st.divider()
         st.subheader("🧠 Relatório automático (ChatGPT)")
 
@@ -552,8 +541,8 @@ with col2:
                 top_tokens_text = "\n".join([f"- {w}: {c}" for w, c in top_tokens])
 
                 prompt = f"""
-Você é um analista de pesquisa educacional. Gere um relatório em português (tom institucional, claro e objetivo)
-com base na pergunta e nas respostas coletadas.
+Você é um analista educacional (disciplina: Modelagem de Dados para Tomada de Decisão).
+Gere um relatório em português (tom institucional, claro e objetivo) com base na pergunta e nas respostas coletadas.
 
 Pergunta:
 {pergunta}
@@ -576,7 +565,7 @@ Estrutura do relatório:
 2) Principais temas percebidos (bullet points)
 3) Interpretações e possíveis significados (curto e direto)
 4) Pontos de atenção (viés, ruído, termos ambíguos, respostas muito curtas)
-5) Recomendações práticas (3 a 6 ações)
+5) Recomendações práticas para a disciplina (3 a 6 ações)
 6) Síntese final (1 parágrafo)
 """
                 resp = client.responses.create(model="gpt-4.1-mini", input=prompt)
@@ -602,7 +591,7 @@ st.markdown(
     """
     <hr style="margin-top: 3rem; margin-bottom: 1rem;">
     <div style="text-align: center; font-size: 0.9rem; color: #6c757d;">
-        App desenvolvido pela <strong>Gerência de Avaliação</strong> • 02/02/2026
+        Dinâmica de aula • <strong>Modelagem de Dados para Tomada de Decisão</strong> • 25/02/2026
     </div>
     """,
     unsafe_allow_html=True
